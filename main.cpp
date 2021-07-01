@@ -13,8 +13,8 @@ void StartSerialTuya()
         SerialTuya->clear();
         SerialTuya->close();
     }
-    SerialTuya->setPortName("/dev/ttyAMA0");
-//    SerialTuya->setPortName("/dev/ttyUSB0");
+//    SerialTuya->setPortName("/dev/ttyAMA0");
+    SerialTuya->setPortName("/dev/ttyUSB0");
     if(!SerialTuya->open(QIODevice::ReadWrite))
     {
         qDebug()<<SerialTuya<<"打开失败!";
@@ -32,9 +32,6 @@ QByteArray SendData(QByteArray command,QString data,bool IsHex)//comand(0x**),da
     QString temp;
     QByteArray dataHex,dataHex_len,dataFirst,dataFinal;
     QByteArray McuHead = QByteArray::fromHex("55aa03");
-//    command=QByteArray::fromHex(data.toLatin1());
-//    qDebug()<<"command"<<command.toHex();
-//    qDebug()<<"McuHead"<<McuHead.toHex();
     if(IsHex == true)
     dataHex = QByteArray::fromHex(data.toLatin1());
     else
@@ -45,11 +42,9 @@ QByteArray SendData(QByteArray command,QString data,bool IsHex)//comand(0x**),da
 //    else
 //    dataHex_len = QString(dataHex.length()).toLatin1();
     dataHex_len = QByteArray::fromHex(QString("%1").arg(dataHex.length(), 4, 16, QLatin1Char('0')).toLatin1());
-//    qDebug()<<"datahex"<<dataHex<<"datahex_len"<<dataHex_len<<endl;
     dataFirst = McuHead + command + dataHex_len + dataHex;
-    qDebug()<<"McuHead"<<McuHead.toHex()<<"command"<<command.toHex()<<"dataHex_len"<<dataHex_len.toHex()<<"dataFirst:"<<dataFirst.toHex()<<endl;
+    qDebug()<<"McuHead"<<McuHead.toHex()<<"command"<<command.toHex()<<"data"<<dataHex.toHex()<<"dataHex_len"<<dataHex_len.toHex()<<"dataFirst:"<<dataFirst.toHex();
     temp = QString(dataFirst.toHex());
-//    qDebug()<<"temp:"<<temp<<endl;
     int byte_num = temp.length();
     static int sum = 0 ;
     for(int i = 0;i<byte_num;i=i+2)
@@ -58,16 +53,12 @@ QByteArray SendData(QByteArray command,QString data,bool IsHex)//comand(0x**),da
         bool ok;
         int dec = temp_add.toHex().toInt(&ok,16);
         sum = sum + dec;
-//        qDebug()<<"i"<<i<<dec<<"SUM"<<sum<<endl;
     }
     sum = sum%256;
-//    qDebug()<<"byte_num"<<byte_num<<"sum:"<<QByteArray::fromHex(QString("%1").arg(sum, 2, 16, QLatin1Char('0')).toLatin1())<<endl;
     temp = temp + QString("%1").arg(sum, 2, 16, QLatin1Char('0'));
-//    qDebug()<<"temp:"<<temp<<endl;
     dataFinal = dataFirst + QByteArray::fromHex(QString("%1").arg(sum, 2, 16, QLatin1Char('0')).toLatin1());
-    qDebug()<<"dataFinal:"<<dataFinal.toHex()<<endl;
     sum = 0 ;
-return dataFinal.toHex();
+return dataFinal;
 }
 void SerialMean(QString read)
 {
@@ -81,33 +72,37 @@ void SerialMean(QString read)
         if(heartcheck==true)//data(0x00)
         {
         QByteArray SendToTuya = SendData(QByteArray::fromHex("00"),"00",true);
-//        SerialTuya->write(SendToTuya);
-         qDebug()<<"SendToTuya1"<<SendToTuya;
+        SerialTuya->write(SendToTuya);
+        qDebug()<<"SendToTuya_heartcheck_1"<<SendToTuya.toHex()<<endl;
         heartcheck=false;
         }
         else//data(0x01)
         {
-        QByteArray SendToTuya = SendData(QByteArray::fromHex("00"),"01",true);
-//        SerialTuya->write(SendToTuya);
-         qDebug()<<"SendToTuya2"<<SendToTuya;
+        QByteArray SendToTuya = SendData(QByteArray::fromHex("00"),"",true);
+        SerialTuya->write(SendToTuya);
+        qDebug()<<"SendToTuya_heartcheck_2"<<SendToTuya.toHex()<<endl;
         }
     }
     //productcheck comand(0x01)
     else if(read.indexOf("55aa0001")==0)
     {
         QString ProductMessage;
-        ProductMessage="{\"p\":\"RN2FVAgXG6WfAktU\",\"v\":\"1.0.0\",\"m\":0}";
+        ProductMessage="{\"p\":\"brku1qm1civanw1y\",\"v\":\"1.0.0\",\"m\":0}";
         QByteArray ProductMessageBytes = ProductMessage.toUtf8().toHex();
-//        SerialTuya->write(QByteArray::fromHex("55aa030000010104"));
-        qDebug()<<"ProductMessageBytes:"<<ProductMessageBytes<<endl;
+        qDebug()<<"ProductMessageBytes:"<<ProductMessageBytes;
         QByteArray SendToTuya = SendData(QByteArray::fromHex("01"),ProductMessageBytes,true);
+        SerialTuya->write(SendToTuya);
+        qDebug()<<"SendToTuya_productcheck"<<SendToTuya.toHex()<<endl;
     }
     //operation mode comand(0x02)
      else if(read.indexOf("55aa0002")==0)
     {
-         QByteArray SendToTuya = SendData(QByteArray::fromHex("02"),"0c0d",true);
-//         SerialTuya->write(QByteArray::fromHex("55aa0303000005"));
-          qDebug()<<"operation mode"<<SendToTuya;
+        //only moudle
+//         QByteArray SendToTuya = SendData(QByteArray::fromHex("02"),"0c0d",true);
+        //moudle and mcu
+         QByteArray SendToTuya = SendData(QByteArray::fromHex("02"),"",true);
+         SerialTuya->write(SendToTuya);
+         qDebug()<<"SendToTuya_operation mode"<<SendToTuya.toHex()<<endl;
     }
 
     //wifi status comand(0x03)
@@ -137,11 +132,43 @@ void SerialMean(QString read)
 int main(int argc, char *argv[])
 {
     QCoreApplication a(argc, argv);
-    SerialMean("55aa00000000ff");//tuya moudle heartcheck
-    SerialMean("55aa0001000000");//tuya moudle productcheck
-    SerialMean("55aa0002000001");//tuya moudle operation modecheck
+    //tuya moudle heartcheck
+    QString heartcheck = "55aa00000000ff";
+    //tuya moudle productcheck
+    QString productcheck = "55aa0001000000";
+    //tuya moudle operation modecheck
+    QString modecheck = "55aa0002000001";
     SerialMean("55aa000300010003");//tuya moudle wifi status
     SerialMean("55aa0008000007");
+    static QString readData;
+    StartSerialTuya();
+    QObject::connect(SerialTuya,&QSerialPort::readyRead,[=]{
+        QByteArray receiveArray = SerialTuya->readAll();
+        readData.append(QString(receiveArray.toHex()));
+        qDebug()<<"receiveArray"<<readData;
+
+        if(readData.indexOf(heartcheck)>-1)
+        {
+            readData.remove(0,readData.indexOf(heartcheck));
+            readData.remove(0,heartcheck.length());
+            SerialMean(heartcheck);
+        }
+        else if(readData.indexOf(productcheck)>-1)
+        {
+            readData.remove(0,readData.indexOf(productcheck));
+            readData.remove(0,productcheck.length());
+            SerialMean(productcheck);
+        }
+        else if(readData.indexOf(modecheck)>-1)
+        {
+            readData.remove(0,readData.indexOf(modecheck));
+            readData.remove(0,modecheck.length());
+            SerialMean(modecheck);
+        }
+
+    });
+
+
     return a.exec();
 }
 
