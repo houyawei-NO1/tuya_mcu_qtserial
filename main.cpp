@@ -13,7 +13,7 @@ void StartSerialTuya()
         SerialTuya->clear();
         SerialTuya->close();
     }
-//    SerialTuya->setPortName("/dev/ttyAMA0");
+
     SerialTuya->setPortName("/dev/ttyUSB0");
     if(!SerialTuya->open(QIODevice::ReadWrite))
     {
@@ -120,9 +120,16 @@ void SerialMean(QString read)
         QByteArray SendToTuya = SendData(QByteArray::fromHex("07"),"050200040000001e",true);
 //        datapointarray[0]  dpid109 6d type01 len0001 value01
 //        datapointarray[1]  dpid102 66 type03 len000c value323031383034313231353037
-//         SerialTuya->write(QByteArray::fromHex("55aa0303000005"));
+//        SerialTuya->write(QByteArray::fromHex("55aa0303000005"));
          qDebug()<<"Data Point up"<<SendToTuya;
-
+         //heart_DP dpid 03 type 02 len 0004 value xxxxxxxx
+         int heart = 60;
+         QString heartUpValue ="03020004" + QString("%1").arg(heart, 8, 16, QLatin1Char('0')) ;
+         QByteArray SendToTuya_heart = SendData(QByteArray::fromHex("07"),heartUpValue,true);
+         SerialTuya->write(SendToTuya_heart);
+         qDebug()<<"SendToTuya_heart Point up"<<SendToTuya_heart.toHex();
+         //breath_DP dpid 04 type 02 len 0004 value xxxxxxxx
+         //sleep_status_DP dpid 08 type 04 len 0001 value 00/01/02/03
          QByteArray SendToTuyaarray = SendData(QByteArray::fromHex("07"),"6d010001016603000c323031383034313231353037",true);
 
     }
@@ -138,14 +145,16 @@ int main(int argc, char *argv[])
     QString productcheck = "55aa0001000000";
     //tuya moudle operation modecheck
     QString modecheck = "55aa0002000001";
-    SerialMean("55aa000300010003");//tuya moudle wifi status
-    SerialMean("55aa0008000007");
+    //tuya moudle wifi status
+    QString moudlewifistatus = "55aa00030001";
+    //tuya moudle status check
+    QString statuscheck = "55aa0008000007";
     static QString readData;
     StartSerialTuya();
     QObject::connect(SerialTuya,&QSerialPort::readyRead,[=]{
         QByteArray receiveArray = SerialTuya->readAll();
         readData.append(QString(receiveArray.toHex()));
-        qDebug()<<"receiveArray"<<readData;
+        qDebug()<<"涂鸦模块传来:"<<readData;
 
         if(readData.indexOf(heartcheck)>-1)
         {
@@ -164,6 +173,35 @@ int main(int argc, char *argv[])
             readData.remove(0,readData.indexOf(modecheck));
             readData.remove(0,modecheck.length());
             SerialMean(modecheck);
+        }
+        else if(readData.indexOf(statuscheck)>-1)
+        {
+            readData.remove(0,readData.indexOf(statuscheck));
+            readData.remove(0,statuscheck.length());
+            SerialMean(statuscheck);
+        }
+        else if(readData.indexOf(moudlewifistatus)>-1 && readData.length()>=16)
+        {
+            readData.remove(0,readData.indexOf(moudlewifistatus));
+            QString moudlewifistatus = readData.mid(0,16);
+            QString nowstatus = moudlewifistatus.mid(12,2);
+                if(nowstatus=="00")
+                  qDebug()<<"Wi-Fi 快连配网配置状态";
+                else if(nowstatus=="01")
+                  qDebug()<<"热点联网配置状态";
+                else if(nowstatus=="02")
+                  qDebug()<<"Wi-Fi已配置但未连上路由器";
+                else if(nowstatus=="03")
+                  qDebug()<<"Wi-Fi已配置且连上路由器";
+                else if(nowstatus=="04")
+                  qDebug()<<"已连上路由器且连接到云端";
+                else if(nowstatus=="05")
+                  qDebug()<<"Wi-Fi设备处于低功耗模式";
+                else if(nowstatus=="06")
+                  qDebug()<<"WIFI设备处于 Wi-Fi 快连配网和热点联网配置状态";
+            readData.remove(0,16);
+            SerialMean(moudlewifistatus);
+
         }
 
     });
