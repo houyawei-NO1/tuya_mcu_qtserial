@@ -2,6 +2,8 @@
 #include <QSerialPort>
 #include <QDebug>
 #include <QLatin1Char>
+#include <QTimer>
+#include <QRandomGenerator>
 static QSerialPort *SerialTuya;
 
 void StartSerialTuya()
@@ -17,7 +19,7 @@ void StartSerialTuya()
     SerialTuya->setPortName("/dev/ttyUSB0");
     if(!SerialTuya->open(QIODevice::ReadWrite))
     {
-        qDebug()<<SerialTuya<<"打开失败!";
+        qDebug()<<SerialTuya<<"打开失败";
         return;
     }
       SerialTuya->setBaudRate(QSerialPort::Baud115200,QSerialPort::AllDirections);
@@ -110,7 +112,7 @@ void SerialMean(QString read)
     {
         QByteArray SendToTuya = SendData(QByteArray::fromHex("03"),"",true);
 //         SerialTuya->write(QByteArray::fromHex("55aa0303000005"));
-         qDebug()<<"wifi status"<<SendToTuya;
+         qDebug()<<"wifi status"<<SendToTuya.toHex()<<endl;
     }
 
      //Data Point up
@@ -123,19 +125,52 @@ void SerialMean(QString read)
 //        SerialTuya->write(QByteArray::fromHex("55aa0303000005"));
          qDebug()<<"Data Point up"<<SendToTuya;
          //heart_DP dpid 03 type 02 len 0004 value xxxxxxxx
-         int heart = 60;
+         int heart = 70;
          QString heartUpValue ="03020004" + QString("%1").arg(heart, 8, 16, QLatin1Char('0')) ;
          QByteArray SendToTuya_heart = SendData(QByteArray::fromHex("07"),heartUpValue,true);
          SerialTuya->write(SendToTuya_heart);
          qDebug()<<"SendToTuya_heart Point up"<<SendToTuya_heart.toHex();
          //breath_DP dpid 04 type 02 len 0004 value xxxxxxxx
+         int breath = 25;
+         QString breathUpValue ="04020004" + QString("%1").arg(breath, 8, 16, QLatin1Char('0')) ;
+         QByteArray SendToTuya_breath = SendData(QByteArray::fromHex("07"),breathUpValue,true);
+         SerialTuya->write(SendToTuya_breath);
+         qDebug()<<"SendToTuya_breath Point up"<<SendToTuya_breath.toHex();
          //sleep_status_DP dpid 08 type 04 len 0001 value 00/01/02/03
+         QString sleepstatus = "03";
+         QString sleepstatusUpValue ="08040001" + sleepstatus ;
+         QByteArray SendToTuya_sleepstatus = SendData(QByteArray::fromHex("07"),sleepstatusUpValue,true);
+         SerialTuya->write(SendToTuya_sleepstatus);
+         qDebug()<<"SendToTuya_sleepstatus Point up"<<SendToTuya_sleepstatus.toHex();
          QByteArray SendToTuyaarray = SendData(QByteArray::fromHex("07"),"6d010001016603000c323031383034313231353037",true);
 
     }
  return;
 }
 
+void SendToTuya(int heart,int breath,QString sleepstatus)
+{
+    qDebug()<<"SendToTuya_Data Point up"<<SendToTuya;
+    //heart_DP dpid 03 type 02 len 0004 value xxxxxxxx
+
+    QString heartUpValue ="03020004" + QString("%1").arg(heart, 8, 16, QLatin1Char('0')) ;
+    QByteArray SendToTuya_heart = SendData(QByteArray::fromHex("07"),heartUpValue,true);
+    SerialTuya->write(SendToTuya_heart);
+    qDebug()<<"SendToTuya_heart Point up"<<SendToTuya_heart.toHex();
+    //breath_DP dpid 04 type 02 len 0004 value xxxxxxxx
+
+    QString breathUpValue ="04020004" + QString("%1").arg(breath, 8, 16, QLatin1Char('0')) ;
+    QByteArray SendToTuya_breath = SendData(QByteArray::fromHex("07"),breathUpValue,true);
+    SerialTuya->write(SendToTuya_breath);
+    qDebug()<<"SendToTuya_breath Point up"<<SendToTuya_breath.toHex();
+    //sleep_status_DP dpid 08 type 04 len 0001 value 00/01/02/03
+
+    QString sleepstatusUpValue ="08040001" + sleepstatus ;
+    QByteArray SendToTuya_sleepstatus = SendData(QByteArray::fromHex("07"),sleepstatusUpValue,true);
+    SerialTuya->write(SendToTuya_sleepstatus);
+    qDebug()<<"SendToTuya_sleepstatus Point up"<<SendToTuya_sleepstatus.toHex();
+    return;
+}
 int main(int argc, char *argv[])
 {
     QCoreApplication a(argc, argv);
@@ -205,6 +240,14 @@ int main(int argc, char *argv[])
         }
 
     });
+
+
+    QTimer *timer = new QTimer();
+    timer->start(5000);
+    QObject::connect(timer,&QTimer::timeout,[=]{
+    SendToTuya(QRandomGenerator::global()->generate() % 70,QRandomGenerator::global()->generate() % 30,"0"+QString::number(QRandomGenerator::global()->generate() % 4));
+    });
+
 
 
     return a.exec();
