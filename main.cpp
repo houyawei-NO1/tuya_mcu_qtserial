@@ -4,6 +4,7 @@
 #include <QLatin1Char>
 #include <QTimer>
 #include <QRandomGenerator>
+#include <QDateTime>
 static QSerialPort *SerialTuya;
 
 void StartSerialTuya()
@@ -66,7 +67,8 @@ void SerialMean(QString read)
 {
 
     //tuya moudle send head(55aa)+version(00)+command(xx)+datalen(xx)+data(xx...)+datacheck(xx)
-
+    QDateTime current_date_time = QDateTime::currentDateTime();
+    qDebug()<<current_date_time;
     //heartcheck comand(0x00)
     bool static heartcheck = true;
     if(read.indexOf("55aa0000")==0)
@@ -152,6 +154,8 @@ void SendToTuya(int heart,int breath,QString sleepstatus)
 {
     qDebug()<<"SendToTuya_Data Point up"<<SendToTuya;
     //heart_DP dpid 03 type 02 len 0004 value xxxxxxxx
+    QDateTime current_date_time = QDateTime::currentDateTime();
+    qDebug()<<current_date_time;
 
     QString heartUpValue ="03020004" + QString("%1").arg(heart, 8, 16, QLatin1Char('0')) ;
     QByteArray SendToTuya_heart = SendData(QByteArray::fromHex("07"),heartUpValue,true);
@@ -243,7 +247,7 @@ int main(int argc, char *argv[])
 
 
     QTimer *timer = new QTimer();
-    timer->start(5000);
+    timer->start(10000);
     QObject::connect(timer,&QTimer::timeout,[=]{
     SendToTuya(QRandomGenerator::global()->generate() % 70,QRandomGenerator::global()->generate() % 30,"0"+QString::number(QRandomGenerator::global()->generate() % 4));
     });
